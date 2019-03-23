@@ -96,6 +96,7 @@ function renderNavBar(navbarId, exampleUri) {
   })
 }
 
+// Side nav with links to navigate to
 function renderSelectList(selectListId, onChange, initialValue, renderChildren) {
   const select = document.createElement('select')
   $(selectListId).get(0).appendChild(select)

@@ -10,19 +10,20 @@
   <script type="text/javascript" src="https://code.jquery.com/jquery-2.1.1.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.100.2/js/materialize.min.js"></script>
 </head>
-<body>
+<body class="indigo darken-4 white-text">
   <div id="navbar"></div>
-  <div class="center-content page-container indigo darken-4 white-text">
+  <div class="center-content page-container">
     <!-- Preloader -->
     <div class="progress" id="loader">
       <div class="indeterminate"></div>
     </div>
-    <!-- Draw detection results here -->
+    <!-- Draw detection results here, canvas is the video feed itself-->
     <div style="position: relative" class="margin">
       <video onplay="onPlay(this)" id="inputVideo" autoplay muted></video>
       <canvas id="overlay" />
     </div>
 
+    <!-- MaterializeCSS grid -->
     <div class="row side-by-side">
 
       <!-- face_detector_selection_control -->
@@ -137,7 +138,10 @@
   <!-- Move to separate js file -->
   <script>
     let forwardTimes = []
+    let mqtt = require('mqtt')
+    let client  = mqtt.connect('mqtt://broker.hivemq.com')
 
+    // Tracking fps and time of video
     function updateTimeStats(timeInMs) {
       forwardTimes = [timeInMs].concat(forwardTimes).slice(0, 30)
       const avgTimeInMs = forwardTimes.reduce((total, t) => total + t) / forwardTimes.length
@@ -151,20 +155,40 @@
 
       if(videoEl.paused || videoEl.ended || !isFaceDetectionModelLoaded())
         return setTimeout(() => onPlay())
-
-
+      
+      // Load different face detection models
       const options = getFaceDetectorOptions()
 
       const ts = Date.now()
 
-      const result = await faceapi.detectSingleFace(videoEl, options)
+      // Get snapshot of video input
+      const canvas = $('#overlay').get(0)
+      var ctx = canvas.getContext('2d');
+
+      // Calls every millisecond
+      // Detect the face with the highest confidence score in an image. 
+      const result = await faceapi.detectSingleFace(ctx, options)
 
       updateTimeStats(Date.now() - ts)
 
       if (result) {
+        client.on('connect', function () {
+          // callback
+          client.subscribe('a2', function (err) {
+            if (!err) {
+                // publish to a topic called a2
+              client.publish('a2', "On")
+            }
+          })
+        })
+        client.on('message', function (topic, message) {
+          // message is Buffer
+          console.log(message.toString())
+          client.end()
+        })
+
         drawDetections(videoEl, $('#overlay').get(0), [result])
       }
-
       setTimeout(() => onPlay())
     }
 
@@ -176,6 +200,7 @@
       // try to access users webcam and stream the images
       // to the video element
       const stream = await navigator.mediaDevices.getUserMedia({ video: {} })
+      // Trying to find mac's camera not pi
       const videoEl = $('#inputVideo').get(0)
       videoEl.srcObject = stream
     }
