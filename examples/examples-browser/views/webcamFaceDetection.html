@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <script src="mqttws31.js"></script>
   <script src="face-api.js"></script>
   <script src="js/commons.js"></script>
   <script src="js/drawing.js"></script>
@@ -138,8 +139,48 @@
   <!-- Move to separate js file -->
   <script>
     let forwardTimes = []
-    let mqtt = require('mqtt')
-    let client  = mqtt.connect('mqtt://broker.hivemq.com')
+    client = new Paho.MQTT.Client("broker.hivemq.com", 8000, "safetyNet");
+
+    // set callback handlers
+    client.onConnectionLost = onConnectionLost;
+    client.onMessageArrived = onMessageArrived;
+    var options = {
+      //useSSL: true,
+      //userName: "username",
+      //password: "password",
+      onSuccess:onConnect,
+      onFailure:doFail
+    }
+
+    // connect the client
+    client.connect(options);
+
+    // called when the client connects
+    function onConnect() {
+      // Once a connection has been made, make a subscription and send a message.
+      console.log("onConnect");
+      //client.subscribe("/cloudmqtt");
+      // publish
+      message = new Paho.MQTT.Message("Hello Something more fun");
+      message.destinationName = "/safetyNet";
+      client.send(message);
+    }
+
+    function doFail(e){
+      console.log(e);
+    }
+
+    // called when the client loses its connection
+    function onConnectionLost(responseObject) {
+      if (responseObject.errorCode !== 0) {
+        console.log("onConnectionLost:"+responseObject.errorMessage);
+      }
+    }
+
+    // called when a message arrives
+    function onMessageArrived(message) {
+      console.log("onMessageArrived:"+message.payloadString);
+    }
 
     // Tracking fps and time of video
     function updateTimeStats(timeInMs) {
@@ -161,34 +202,36 @@
 
       const ts = Date.now()
 
-      // Get snapshot of video input
-      const canvas = $('#overlay').get(0)
-      var ctx = canvas.getContext('2d');
+      // set global variable
+      let faceCaptured = false
 
       // Calls every millisecond
       // Detect the face with the highest confidence score in an image. 
-      const result = await faceapi.detectSingleFace(ctx, options)
+      const result = await faceapi.detectSingleFace(videoEl, options)
 
       updateTimeStats(Date.now() - ts)
 
       if (result) {
-        client.on('connect', function () {
-          // callback
-          client.subscribe('a2', function (err) {
-            if (!err) {
-                // publish to a topic called a2
-              client.publish('a2', "On")
-            }
-          })
-        })
-        client.on('message', function (topic, message) {
-          // message is Buffer
-          console.log(message.toString())
-          client.end()
-        })
-
+        if(!faceCaptured){
+          faceCaptured = true 
+          console.log("FACE DETECTED!")
+          // client.publish('a2', "On")
+          message = new Paho.MQTT.Message("On");
+          message.destinationName = "a2";
+          client.send(message);
+        }
         drawDetections(videoEl, $('#overlay').get(0), [result])
       }
+      else {
+        // send no face response 
+        // client.publish('a2', "Off")
+        message = new Paho.MQTT.Message("Off");
+        message.destinationName = "a2";
+        client.send(message);
+        console.log("NO FACE DETECTED")
+        faceCaptured = false
+      }
+
       setTimeout(() => onPlay())
     }
 
