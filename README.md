@@ -1,4 +1,8 @@
-# face-api.js
+# How we set-up Raspberry Pi
+![setUpRaspPi](https://user-images.githubusercontent.com/15849137/128654811-c8e80ed9-85dc-47d2-bcc4-631caa57d6d2.jpg)
+
+
+# face-api.js - API used for browser demo
 
 [![Build Status](https://travis-ci.org/justadudewhohacks/face-api.js.svg?branch=master)](https://travis-ci.org/justadudewhohacks/face-api.js)
 [![Slack](https://slack.bri.im/badge.svg)](https://slack.bri.im)
